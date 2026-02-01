@@ -1,5 +1,7 @@
 "use client";
+import "./globals.css"; // <--- ¡ESTA LÍNEA ES LA CLAVE!
 import { useState } from "react";
+import { Inter } from "next/font/google";
 import Link from "next/link";
 import {
   LayoutDashboard,
@@ -10,6 +12,8 @@ import {
   Menu,
   X,
 } from "lucide-react";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export default function RootLayout({
   children,
@@ -28,11 +32,13 @@ export default function RootLayout({
 
   return (
     <html lang="es">
-      <body className="bg-black text-white flex flex-col md:flex-row min-h-screen">
-        {/* HEADER MÓVIL (Solo visible en pantallas pequeñas) */}
+      <body
+        className={`${inter.className} bg-black text-white flex flex-col md:flex-row min-h-screen`}
+      >
+        {/* HEADER MÓVIL */}
         <div className="md:hidden flex items-center justify-between p-4 border-b border-zinc-800 bg-black sticky top-0 z-50">
-          <h1 className="text-xl font-black tracking-tighter text-blue-500">
-            DEV-VAULT
+          <h1 className="text-xl font-black tracking-tighter text-blue-500 uppercase">
+            Dev-Vault
           </h1>
           <button
             onClick={() => setIsOpen(!isOpen)}
@@ -42,7 +48,7 @@ export default function RootLayout({
           </button>
         </div>
 
-        {/* SIDEBAR (Responsive) */}
+        {/* SIDEBAR RESPONSIVE */}
         <aside
           className={`
           fixed inset-y-0 left-0 z-40 w-64 bg-zinc-950 border-r border-zinc-900 transform transition-transform duration-300 ease-in-out
@@ -51,8 +57,8 @@ export default function RootLayout({
         `}
         >
           <div className="p-8">
-            <h1 className="text-2xl font-black tracking-tighter text-white mb-10 hidden md:block">
-              DEV<span className="text-blue-500">-VAULT</span>
+            <h1 className="text-2xl font-black tracking-tighter text-white mb-10 hidden md:block uppercase">
+              Dev<span className="text-blue-500">-Vault</span>
             </h1>
             <nav className="space-y-2">
               {menuItems.map((item) => (
@@ -72,7 +78,7 @@ export default function RootLayout({
           </div>
         </aside>
 
-        {/* OVERLAY PARA MÓVIL (Cierra el menú al tocar fuera) */}
+        {/* OVERLAY */}
         {isOpen && (
           <div
             className="fixed inset-0 bg-black/60 z-30 md:hidden"
