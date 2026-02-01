@@ -122,6 +122,7 @@ export default function FacturasPage() {
           </label>
           <input
             type="number"
+            step="0.01"
             value={monto}
             onChange={(e) => setMonto(e.target.value)}
             className="w-full bg-zinc-800 border-zinc-700 rounded-xl p-3 text-white outline-none focus:ring-2 focus:ring-blue-500"

@@ -146,9 +146,10 @@ export default function Dashboard() {
               <XAxis
                 dataKey="name"
                 stroke="#71717a"
-                fontSize={12}
                 tickLine={false}
                 axisLine={false}
+                tick={{ fill: "#71717a", fontSize: 10 }}
+                interval={0}
               />
               <YAxis
                 stroke="#71717a"

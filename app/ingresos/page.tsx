@@ -115,7 +115,7 @@ export default function IngresosPage() {
         />
       </div>
 
-      <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl overflow-x-auto shadow-2xl">
         <table className="w-full text-left">
           <thead>
             <tr className="border-b border-zinc-800 text-zinc-500 text-xs uppercase font-bold tracking-widest">
