@@ -1,150 +1,123 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import {
-  User,
-  DollarSign,
-  Shield,
-  Bell,
-  ChevronRight,
-  Save,
-  X,
-} from "lucide-react";
+import { Building2, Save, CheckCircle } from "lucide-react";
 
 export default function AjustesPage() {
-  const [perfil, setPerfil] = useState<any>(null);
-  const [editando, setEditando] = useState<string | null>(null); // 'perfil' o 'saldo'
-  const [nombre, setNombre] = useState("");
-  const [saldo, setSaldo] = useState("");
+  const [perfil, setPerfil] = useState({
+    nombre_empresa: "",
+    nif_cif: "",
+    direccion: "",
+    email_contacto: "",
+  });
+  const [guardado, setGuardado] = useState(false);
 
   useEffect(() => {
-    async function cargar() {
-      const { data } = await supabase.from("perfiles").select("*").single();
-      if (data) {
-        setPerfil(data);
-        setNombre(data.Nombre);
-        setSaldo(data.Ingresos_Totales.toString());
-      }
-    }
-    cargar();
+    const cargarPerfil = async () => {
+      const { data } = await supabase.from("perfil").select("*").single();
+      if (data) setPerfil(data);
+    };
+    cargarPerfil();
   }, []);
 
-  const actualizar = async () => {
+  const guardarCambios = async () => {
     const { error } = await supabase
-      .from("perfiles")
-      .update({ Nombre: nombre, Ingresos_Totales: parseInt(saldo) })
-      .eq("id", perfil.id);
+      .from("perfil")
+      .update(perfil)
+      .eq("id", (perfil as any).id);
 
     if (!error) {
-      setEditando(null);
-      window.location.reload(); // Para refrescar los datos globales
+      setGuardado(true);
+      setTimeout(() => setGuardado(false), 3000);
     }
   };
 
   return (
-    <div className="p-8 max-w-3xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-white">Configuración</h1>
-        <p className="text-zinc-400">
-          Administra las preferencias de tu cuenta y negocio.
+    <div className="p-4 md:p-8 space-y-8 bg-black min-h-screen text-white">
+      <header>
+        <h1 className="text-2xl md:text-3xl font-bold">Configuración</h1>
+        <p className="text-zinc-500 text-sm">
+          Gestiona los datos legales de tu negocio.
         </p>
-      </div>
+      </header>
 
-      <div className="space-y-4">
-        {/* OPCIÓN: PERFIL */}
-        <button
-          onClick={() => setEditando("perfil")}
-          className="w-full bg-zinc-900 border border-zinc-800 p-6 rounded-2xl flex items-center justify-between hover:bg-zinc-800/50 transition-all group"
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-500/10 rounded-xl text-blue-500">
-              <User />
+      <div className="max-w-2xl bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
+        <div className="p-6 border-b border-zinc-800 bg-zinc-900/50 flex items-center gap-3">
+          <Building2 className="text-blue-500" size={24} />
+          <h2 className="font-bold text-lg">Datos de Empresa</h2>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">
+                Nombre Comercial
+              </label>
+              <input
+                type="text"
+                value={perfil.nombre_empresa}
+                onChange={(e) =>
+                  setPerfil({ ...perfil, nombre_empresa: e.target.value })
+                }
+                className="w-full bg-zinc-800 border-zinc-700 rounded-xl p-3 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                placeholder="Ej: Dev-Vault S.L."
+              />
             </div>
-            <div className="text-left">
-              <p className="text-white font-semibold">Información Personal</p>
-              <p className="text-zinc-500 text-sm">
-                Cambia tu nombre público: {perfil?.Nombre}
-              </p>
+            <div className="space-y-2">
+              <label className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">
+                NIF / CIF
+              </label>
+              <input
+                type="text"
+                value={perfil.nif_cif}
+                onChange={(e) =>
+                  setPerfil({ ...perfil, nif_cif: e.target.value })
+                }
+                className="w-full bg-zinc-800 border-zinc-700 rounded-xl p-3 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                placeholder="Ej: B12345678"
+              />
             </div>
           </div>
-          <ChevronRight className="text-zinc-600 group-hover:translate-x-1 transition-transform" />
-        </button>
 
-        {/* OPCIÓN: FINANZAS */}
-        <button
-          onClick={() => setEditando("saldo")}
-          className="w-full bg-zinc-900 border border-zinc-800 p-6 rounded-2xl flex items-center justify-between hover:bg-zinc-800/50 transition-all group"
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-green-500/10 rounded-xl text-green-500">
-              <DollarSign />
-            </div>
-            <div className="text-left">
-              <p className="text-white font-semibold">Ajustes Financieros</p>
-              <p className="text-zinc-500 text-sm">
-                Tu saldo base actual es de {perfil?.Ingresos_Totales}€
-              </p>
-            </div>
+          <div className="space-y-2">
+            <label className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">
+              Dirección Fiscal
+            </label>
+            <input
+              type="text"
+              value={perfil.direccion}
+              onChange={(e) =>
+                setPerfil({ ...perfil, direccion: e.target.value })
+              }
+              className="w-full bg-zinc-800 border-zinc-700 rounded-xl p-3 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+              placeholder="Calle Falsa 123, Madrid"
+            />
           </div>
-          <ChevronRight className="text-zinc-600 group-hover:translate-x-1 transition-transform" />
-        </button>
 
-        {/* OPCIÓN: SEGURIDAD (BLOQUEADA POR AHORA) */}
-        <div className="w-full bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-2xl flex items-center justify-between opacity-60">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-zinc-800 rounded-xl text-zinc-500">
-              <Shield />
-            </div>
-            <div className="text-left">
-              <p className="text-white font-semibold">Seguridad y Acceso</p>
-              <p className="text-zinc-500 text-sm">
-                Próximamente: Cambiar contraseña y 2FA
-              </p>
-            </div>
+          <div className="space-y-2">
+            <label className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">
+              Email de Contacto
+            </label>
+            <input
+              type="email"
+              value={perfil.email_contacto}
+              onChange={(e) =>
+                setPerfil({ ...perfil, email_contacto: e.target.value })
+              }
+              className="w-full bg-zinc-800 border-zinc-700 rounded-xl p-3 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+              placeholder="contacto@tuempresa.com"
+            />
           </div>
+
+          <button
+            onClick={guardarCambios}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all"
+          >
+            {guardado ? <CheckCircle size={20} /> : <Save size={20} />}
+            {guardado ? "¡Cambios Guardados!" : "Guardar Configuración"}
+          </button>
         </div>
       </div>
-
-      {/* MODAL DE EDICIÓN (Simple y efectivo) */}
-      {editando && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-3xl w-full max-w-md shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-white">
-                Editar {editando === "perfil" ? "Perfil" : "Saldo"}
-              </h2>
-              <button
-                onClick={() => setEditando(null)}
-                className="text-zinc-500 hover:text-white"
-              >
-                <X />
-              </button>
-            </div>
-
-            {editando === "perfil" ? (
-              <input
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                className="w-full bg-zinc-800 border-zinc-700 rounded-xl p-4 text-white mb-6 outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            ) : (
-              <input
-                type="number"
-                value={saldo}
-                onChange={(e) => setSaldo(e.target.value)}
-                className="w-full bg-zinc-800 border-zinc-700 rounded-xl p-4 text-white mb-6 outline-none focus:ring-2 focus:ring-green-500"
-              />
-            )}
-
-            <button
-              onClick={actualizar}
-              className="w-full bg-white text-black font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-zinc-200 transition-all"
-            >
-              <Save size={20} /> Guardar Cambios
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
