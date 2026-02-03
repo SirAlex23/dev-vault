@@ -7,35 +7,51 @@ import {
   Plus,
   AlertCircle,
   CheckCircle2,
+  Printer,
 } from "lucide-react";
 
 export default function FacturasPage() {
   const [facturas, setFacturas] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
+  const [perfil, setPerfil] = useState<any>(null);
   const [clienteId, setClienteId] = useState("");
   const [monto, setMonto] = useState("");
   const [estado, setEstado] = useState("Pendiente");
   const [mensaje, setMensaje] = useState({ texto: "", tipo: "" });
 
   const cargarDatos = async () => {
-    // 1. Cargamos facturas (Supabase filtra automáticamente por usuario gracias al SQL RLS)
+    // 1. Facturas del usuario
     const { data: fact_data } = await supabase
       .from("facturas")
       .select("*")
       .order("created_at", { ascending: false });
     if (fact_data) setFacturas(fact_data);
 
-    // 2. Cargamos clientes (también filtrados por RLS)
+    // 2. Clientes activos
     const { data: cli_data } = await supabase
       .from("clientes")
       .select("*")
       .eq("activo", true);
     if (cli_data) setClientes(cli_data);
+
+    // 3. Datos legales (IBAN, NIF...) para el PDF
+    const { data: perfil_data } = await supabase
+      .from("perfil")
+      .select("*")
+      .single();
+    if (perfil_data) setPerfil(perfil_data);
   };
 
   useEffect(() => {
     cargarDatos();
   }, []);
+
+  const imprimirFactura = (factura: any) => {
+    // Aquí se conectará la lógica de jspdf usando los datos de 'perfil'
+    alert(
+      `Generando PDF para ${factura.cliente_nombre}. Incluyendo IBAN: ${perfil?.iban || "No configurado"}`,
+    );
+  };
 
   const generarFactura = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,19 +63,10 @@ export default function FacturasPage() {
     const cliente = clientes.find((c) => c.id === clienteId);
     if (!cliente) return;
 
-    // --- CAMBIO CLAVE PARA MULTIUSUARIO ---
-    // Obtenemos el usuario actual de la sesión
     const {
       data: { user },
     } = await supabase.auth.getUser();
-
-    if (!user) {
-      setMensaje({
-        texto: "Error: No se detectó sesión de usuario",
-        tipo: "error",
-      });
-      return;
-    }
+    if (!user) return;
 
     const { error } = await supabase.from("facturas").insert([
       {
@@ -67,7 +74,7 @@ export default function FacturasPage() {
         cliente_nombre: cliente.Nombre || cliente.nombre,
         monto: parseFloat(monto),
         estado: estado,
-        user_id: user.id, // 👈 Se guarda vinculado a tu cuenta
+        user_id: user.id,
       },
     ]);
 
@@ -86,7 +93,10 @@ export default function FacturasPage() {
       .from("facturas")
       .update({ estado: "Pagada" })
       .eq("id", id);
-    if (!error) cargarDatos();
+    if (!error) {
+      setMensaje({ texto: "Cobro registrado correctamente", tipo: "success" });
+      cargarDatos();
+    }
   };
 
   return (
@@ -113,7 +123,7 @@ export default function FacturasPage() {
         </div>
       )}
 
-      {/* FORMULARIO DE CREACIÓN */}
+      {/* FORMULARIO */}
       <form
         onSubmit={generarFactura}
         className="bg-zinc-900 border border-zinc-800 p-6 rounded-[32px] flex flex-wrap md:flex-nowrap gap-4 items-end shadow-2xl"
@@ -125,7 +135,7 @@ export default function FacturasPage() {
           <select
             value={clienteId}
             onChange={(e) => setClienteId(e.target.value)}
-            className="w-full bg-zinc-800 border-zinc-700 rounded-2xl p-4 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer appearance-none"
+            className="w-full bg-zinc-800 border-zinc-700 rounded-2xl p-4 text-white outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
           >
             <option value="">Elegir cliente...</option>
             {clientes.map((c) => (
@@ -155,7 +165,7 @@ export default function FacturasPage() {
           <select
             value={estado}
             onChange={(e) => setEstado(e.target.value)}
-            className="w-full bg-zinc-800 border-zinc-700 rounded-2xl p-4 text-white outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer appearance-none"
+            className="w-full bg-zinc-800 border-zinc-700 rounded-2xl p-4 text-white outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
           >
             <option value="Pendiente">Pendiente</option>
             <option value="Pagada">Pagada</option>
@@ -163,18 +173,18 @@ export default function FacturasPage() {
         </div>
         <button
           type="submit"
-          className="w-full md:w-auto bg-blue-600 hover:bg-blue-500 text-white p-4 px-8 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-900/20"
+          className="w-full md:w-auto bg-blue-600 hover:bg-blue-500 text-white p-4 px-8 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
         >
           <Plus size={18} /> Generar
         </button>
       </form>
 
-      {/* LISTADO DE FACTURAS */}
+      {/* LISTADO */}
       <div className="grid grid-cols-1 gap-3">
         {facturas.map((f) => (
           <div
             key={f.id}
-            className="bg-zinc-900 border border-zinc-800 p-5 rounded-[24px] flex flex-col md:flex-row md:items-center justify-between group hover:border-zinc-700 transition-all shadow-sm gap-4"
+            className="bg-zinc-900 border border-zinc-800 p-5 rounded-[24px] flex flex-col md:flex-row md:items-center justify-between group hover:border-zinc-700 transition-all gap-4"
           >
             <div className="flex items-center gap-4">
               <div
@@ -196,17 +206,26 @@ export default function FacturasPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between md:justify-end gap-6 border-t md:border-none border-zinc-800 pt-4 md:pt-0">
+            <div className="flex items-center justify-between md:justify-end gap-3 border-t md:border-none border-zinc-800 pt-4 md:pt-0">
+              {/* BOTONES SOLO PARA PENDIENTES */}
               {f.estado === "Pendiente" && (
-                <button
-                  onClick={() => marcarComoPagada(f.id)}
-                  className="text-[10px] bg-green-600 text-white px-4 py-2 rounded-xl font-black uppercase tracking-widest transition-all hover:bg-green-500 shadow-lg shadow-green-900/20"
-                >
-                  Cobrar
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => marcarComoPagada(f.id)}
+                    className="text-[10px] bg-green-600 text-white px-4 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-green-500 transition-all shadow-lg shadow-green-900/20"
+                  >
+                    Cobrar
+                  </button>
+                  <button
+                    onClick={() => imprimirFactura(f)}
+                    className="text-[10px] bg-blue-600 text-white px-4 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 flex items-center gap-2"
+                  >
+                    <Printer size={14} /> Imprimir
+                  </button>
+                </div>
               )}
 
-              <div className="text-right">
+              <div className="text-right min-w-[100px]">
                 <p className="text-2xl font-black text-white leading-none">
                   {f.monto.toFixed(2)}€
                 </p>

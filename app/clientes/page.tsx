@@ -11,11 +11,10 @@ export default function ClientesPage() {
 
   const cargarClientes = async () => {
     setLoading(true);
-    // Supabase filtra automáticamente gracias al RLS que activamos en el SQL
     const { data } = await supabase
       .from("clientes")
       .select("*")
-      .eq("activo", true)
+      .eq("activo", true) // Filtra por el booleano
       .order("created_at", { ascending: false });
 
     if (data) setClientes(data);
@@ -30,18 +29,19 @@ export default function ClientesPage() {
     e.preventDefault();
     if (!nombre || !email) return;
 
-    // --- SEGURIDAD MULTIUSUARIO ---
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) return alert("Debes iniciar sesión");
 
+    // CORRECCIÓN: Enviamos todos los campos requeridos por tu tabla
     const { error } = await supabase.from("clientes").insert([
       {
-        nombre: nombre, // Asegúrate que en tu tabla se llame 'nombre' o 'Nombre'
-        email: email,
-        activo: true,
-        user_id: user.id, // 👈 Vinculamos al usuario actual
+        Nombre: nombre, // Case-sensitive
+        Email: email, // Case-sensitive
+        Estado: "Activo", // Columna de texto
+        activo: true, // Columna booleana
+        user_id: user.id, // Vinculación multiusuario
       },
     ]);
 
@@ -49,6 +49,9 @@ export default function ClientesPage() {
       setNombre("");
       setEmail("");
       cargarClientes();
+    } else {
+      // Alert para diagnosticar fallos (ej: error de RLS o campos faltantes)
+      alert("Error al añadir: " + error.message);
     }
   };
 
@@ -56,9 +59,13 @@ export default function ClientesPage() {
     if (!confirm("¿Estás seguro? Se mantendrá el historial de facturas."))
       return;
 
+    // Actualizamos tanto el booleano como el texto para mantener coherencia
     const { error } = await supabase
       .from("clientes")
-      .update({ activo: false })
+      .update({
+        activo: false,
+        Estado: "Desactivado",
+      })
       .eq("id", id);
 
     if (!error) {
@@ -134,22 +141,21 @@ export default function ClientesPage() {
 
               <div className="flex items-center gap-4 mb-6">
                 <div className="h-14 w-14 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 text-xl font-black">
-                  {(cliente.nombre || cliente.Nombre)?.[0].toUpperCase() || "?"}
+                  {cliente.Nombre?.[0].toUpperCase() || "?"}
                 </div>
                 <div>
                   <h3 className="text-white font-bold text-lg leading-tight">
-                    {cliente.nombre || cliente.Nombre || "Sin nombre"}
+                    {cliente.Nombre || "Sin nombre"}
                   </h3>
                   <span className="text-[10px] text-green-500 bg-green-500/10 px-2 py-1 rounded-lg uppercase font-black tracking-wider">
-                    Activo
+                    {cliente.Estado || "Activo"}
                   </span>
                 </div>
               </div>
 
               <div className="space-y-3 text-sm text-zinc-400 bg-black/40 p-4 rounded-2xl border border-zinc-800/50">
                 <div className="flex items-center gap-2 truncate">
-                  <Mail size={14} className="text-zinc-600" />{" "}
-                  {cliente.email || cliente.Email}
+                  <Mail size={14} className="text-zinc-600" /> {cliente.Email}
                 </div>
               </div>
             </div>
