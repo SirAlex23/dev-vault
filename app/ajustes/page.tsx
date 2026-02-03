@@ -3,29 +3,20 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   Building2,
-  ChevronRight,
-  ArrowLeft,
-  Save,
-  CheckCircle,
-  CreditCard,
   Mail,
   MapPin,
+  CreditCard,
+  Save,
+  ArrowLeft,
+  CheckCircle2,
+  Loader2,
 } from "lucide-react";
 
-// Definimos la estructura para que TypeScript no de errores
-interface Perfil {
-  id: string;
-  nombre_empresa: string;
-  nif_cif: string;
-  direccion: string;
-  email_contacto: string;
-  iban: string;
-  swift_bic: string;
-}
-
 export default function AjustesPage() {
-  const [seccion, setSeccion] = useState<"menu" | "perfil">("menu");
-  const [perfil, setPerfil] = useState<Perfil>({
+  const [seccion, setSeccion] = useState("menu");
+  const [cargando, setCargando] = useState(false);
+  const [guardado, setGuardado] = useState(false);
+  const [perfil, setPerfil] = useState({
     id: "",
     nombre_empresa: "",
     nif_cif: "",
@@ -34,8 +25,6 @@ export default function AjustesPage() {
     iban: "",
     swift_bic: "",
   });
-  const [guardado, setGuardado] = useState(false);
-  const [cargando, setCargando] = useState(false);
 
   useEffect(() => {
     const cargarPerfil = async () => {
@@ -43,10 +32,9 @@ export default function AjustesPage() {
         .from("perfil")
         .select("*")
         .single();
-      if (data) {
+
+      if (data && !error) {
         setPerfil(data);
-      } else if (error) {
-        console.error("Error cargando perfil:", error.message);
       }
     };
     cargarPerfil();
@@ -54,12 +42,32 @@ export default function AjustesPage() {
 
   const guardarCambios = async () => {
     setCargando(true);
-    const { error } = await supabase.from("perfil").upsert({
-      ...perfil,
+
+    // 1. Preparamos los datos. Si el ID es una cadena vacía, lo eliminamos
+    // para evitar el error "invalid input syntax for type uuid"
+    const datosAEnviar: any = {
+      nombre_empresa: perfil.nombre_empresa,
+      nif_cif: perfil.nif_cif,
+      direccion: perfil.direccion,
+      email_contacto: perfil.email_contacto,
+      iban: perfil.iban,
+      swift_bic: perfil.swift_bic,
       updated_at: new Date(),
-    });
+    };
+
+    // Solo enviamos el ID si realmente existe uno previo
+    if (perfil.id && perfil.id.trim() !== "") {
+      datosAEnviar.id = perfil.id;
+    }
+
+    const { data, error } = await supabase
+      .from("perfil")
+      .upsert(datosAEnviar)
+      .select()
+      .single();
 
     if (!error) {
+      if (data) setPerfil(data);
       setGuardado(true);
       setTimeout(() => {
         setGuardado(false);
@@ -71,163 +79,185 @@ export default function AjustesPage() {
     setCargando(false);
   };
 
-  if (seccion === "menu") {
+  if (seccion === "empresa") {
     return (
-      <div className="p-4 md:p-8 space-y-8 bg-black min-h-screen text-white">
-        <header>
-          <h1 className="text-3xl font-black tracking-tighter uppercase italic text-white">
-            Configuración
-          </h1>
-          <p className="text-zinc-500 text-sm font-medium text-white">
-            Gestiona los datos legales de tu negocio.
-          </p>
+      <div className="p-4 md:p-8 space-y-8 bg-black min-h-screen text-white animate-in fade-in duration-500">
+        <header className="flex items-center gap-4">
+          <button
+            onClick={() => setSeccion("menu")}
+            className="p-3 bg-zinc-900 border border-zinc-800 rounded-2xl hover:bg-zinc-800 transition-all"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-black uppercase tracking-tighter">
+              Perfil de Empresa
+            </h1>
+            <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">
+              Configura tus datos fiscales
+            </p>
+          </div>
         </header>
 
-        <div className="max-w-2xl">
-          <button
-            onClick={() => setSeccion("perfil")}
-            className="w-full flex items-center justify-between p-6 bg-zinc-900 border border-zinc-800 rounded-[32px] hover:border-zinc-600 transition-all text-left group shadow-xl"
-          >
-            <div className="flex items-center gap-4">
-              <div className="bg-blue-500/10 p-4 rounded-2xl text-blue-500 text-white">
-                <Building2 size={28} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* BLOQUE DATOS GENERALES */}
+          <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-[32px] space-y-6">
+            <h2 className="text-sm font-black uppercase tracking-widest text-blue-500 flex items-center gap-2">
+              <Building2 size={16} /> Información Básica
+            </h2>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] text-zinc-500 uppercase font-black ml-2">
+                  Nombre Comercial
+                </label>
+                <input
+                  type="text"
+                  value={perfil.nombre_empresa}
+                  onChange={(e) =>
+                    setPerfil({ ...perfil, nombre_empresa: e.target.value })
+                  }
+                  className="w-full bg-zinc-800 border-zinc-700 rounded-2xl p-4 text-white outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Ej: TecnoNova Solutions"
+                />
               </div>
-              <div>
-                <h3 className="font-bold text-lg text-white">
-                  Información de Facturación
-                </h3>
-                <p className="text-xs text-zinc-500 text-white">
-                  Datos fiscales, dirección e IBAN bancario
-                </p>
+
+              <div className="space-y-2">
+                <label className="text-[10px] text-zinc-500 uppercase font-black ml-2">
+                  Email de Contacto
+                </label>
+                <div className="relative">
+                  <Mail
+                    className="absolute left-4 top-4 text-zinc-500"
+                    size={18}
+                  />
+                  <input
+                    type="email"
+                    value={perfil.email_contacto}
+                    onChange={(e) =>
+                      setPerfil({ ...perfil, email_contacto: e.target.value })
+                    }
+                    className="w-full bg-zinc-800 border-zinc-700 rounded-2xl p-4 pl-12 text-white outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="admin@empresa.com"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] text-zinc-500 uppercase font-black ml-2">
+                  Dirección Fiscal
+                </label>
+                <div className="relative">
+                  <MapPin
+                    className="absolute left-4 top-4 text-zinc-500"
+                    size={18}
+                  />
+                  <textarea
+                    value={perfil.direccion}
+                    onChange={(e) =>
+                      setPerfil({ ...perfil, direccion: e.target.value })
+                    }
+                    className="w-full bg-zinc-800 border-zinc-700 rounded-2xl p-4 pl-12 text-white outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                    placeholder="Calle, Número, Ciudad, CP"
+                  />
+                </div>
               </div>
             </div>
-            <ChevronRight className="text-zinc-700 group-hover:text-white transition-colors" />
-          </button>
+          </div>
+
+          {/* BLOQUE DATOS BANCARIOS */}
+          <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-[32px] space-y-6">
+            <h2 className="text-sm font-black uppercase tracking-widest text-green-500 flex items-center gap-2">
+              <CreditCard size={16} /> Datos Bancarios
+            </h2>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] text-zinc-500 uppercase font-black ml-2">
+                  IBAN de la Cuenta
+                </label>
+                <input
+                  type="text"
+                  value={perfil.iban}
+                  onChange={(e) =>
+                    setPerfil({ ...perfil, iban: e.target.value })
+                  }
+                  className="w-full bg-zinc-800 border-zinc-700 rounded-2xl p-4 text-white outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="ES00 0000 0000 0000 0000 0000"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] text-zinc-500 uppercase font-black ml-2">
+                  SWIFT / BIC
+                </label>
+                <input
+                  type="text"
+                  value={perfil.swift_bic}
+                  onChange={(e) =>
+                    setPerfil({ ...perfil, swift_bic: e.target.value })
+                  }
+                  className="w-full bg-zinc-800 border-zinc-700 rounded-2xl p-4 text-white outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="BXMADRSXXX"
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={guardarCambios}
+              disabled={cargando}
+              className={`w-full p-4 rounded-2xl font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 ${
+                guardado
+                  ? "bg-green-500 text-white"
+                  : "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20"
+              }`}
+            >
+              {cargando ? (
+                <Loader2 className="animate-spin" />
+              ) : guardado ? (
+                <CheckCircle2 />
+              ) : (
+                <Save size={20} />
+              )}
+              {cargando
+                ? "Guardando..."
+                : guardado
+                  ? "¡Guardado!"
+                  : "Guardar Cambios"}
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-8 bg-black min-h-screen text-white animate-in fade-in duration-500">
-      <button
-        onClick={() => setSeccion("menu")}
-        className="flex items-center gap-2 text-zinc-500 hover:text-white transition-colors text-[10px] font-black uppercase tracking-widest text-white"
-      >
-        <ArrowLeft size={14} /> Volver a Ajustes
-      </button>
+    <div className="p-4 md:p-8 space-y-8 bg-black min-h-screen text-white">
+      <header>
+        <h1 className="text-3xl font-black uppercase tracking-tighter italic">
+          Ajustes
+        </h1>
+        <p className="text-zinc-500 font-medium mt-1">
+          Configuración del sistema y cuenta.
+        </p>
+      </header>
 
-      <div className="max-w-xl space-y-8">
-        <div>
-          <h2 className="text-2xl font-black tracking-tight text-white">
-            DATOS DE LA EMPRESA
-          </h2>
-          <p className="text-zinc-500 text-sm text-white">
-            Estos datos aparecerán automáticamente en tus facturas.
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <button
+          onClick={() => setSeccion("empresa")}
+          className="bg-zinc-900 border border-zinc-800 p-8 rounded-[32px] text-left hover:border-blue-500/50 transition-all group"
+        >
+          <div className="bg-blue-500/10 text-blue-500 p-4 rounded-2xl w-fit mb-4 group-hover:scale-110 transition-transform">
+            <Building2 size={32} />
+          </div>
+          <h3 className="text-xl font-black uppercase tracking-tighter">
+            Empresa
+          </h3>
+          <p className="text-zinc-500 text-sm font-medium mt-1">
+            Datos fiscales, IBAN y contacto.
           </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <InputField
-              label="Nombre Comercial"
-              value={perfil.nombre_empresa}
-              onChange={(v: string) =>
-                setPerfil({ ...perfil, nombre_empresa: v })
-              }
-              icon={<Building2 size={14} />}
-            />
-            <InputField
-              label="NIF / CIF"
-              value={perfil.nif_cif}
-              onChange={(v: string) => setPerfil({ ...perfil, nif_cif: v })}
-            />
-          </div>
-
-          <InputField
-            label="Email de Contacto"
-            value={perfil.email_contacto}
-            onChange={(v: string) =>
-              setPerfil({ ...perfil, email_contacto: v })
-            }
-            icon={<Mail size={14} />}
-          />
-          <InputField
-            label="Dirección Fiscal"
-            value={perfil.direccion}
-            onChange={(v: string) => setPerfil({ ...perfil, direccion: v })}
-            icon={<MapPin size={14} />}
-          />
-
-          <div className="pt-4 border-t border-zinc-800">
-            <h3 className="text-xs font-black text-zinc-400 uppercase tracking-[0.2em] mb-4 text-white text-white">
-              Datos Bancarios
-            </h3>
-            <div className="space-y-4">
-              <InputField
-                label="IBAN de la Cuenta"
-                value={perfil.iban}
-                onChange={(v: string) => setPerfil({ ...perfil, iban: v })}
-                icon={<CreditCard size={14} />}
-                placeholder="ES00 0000 0000..."
-              />
-              <InputField
-                label="SWIFT / BIC"
-                value={perfil.swift_bic}
-                onChange={(v: string) => setPerfil({ ...perfil, swift_bic: v })} // Corregido 'percent' por 'perfil'
-                placeholder="NOMBESSXXX"
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={guardarCambios}
-            disabled={cargando}
-            className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 transition-all ${
-              guardado
-                ? "bg-green-500 text-white"
-                : "bg-blue-600 hover:bg-blue-500 text-white"
-            }`}
-          >
-            {guardado ? <CheckCircle size={18} /> : <Save size={18} />}
-            {guardado
-              ? "¡Cambios guardados con éxito!"
-              : cargando
-                ? "Guardando..."
-                : "Guardar Configuración"}
-          </button>
-        </div>
+        </button>
       </div>
-    </div>
-  );
-}
-
-// Componente de Input con tipos definidos para evitar errores de TS
-function InputField({
-  label,
-  value,
-  onChange,
-  icon,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  icon?: React.ReactNode;
-  placeholder?: string;
-}) {
-  return (
-    <div className="space-y-2">
-      <label className="text-[10px] text-zinc-500 uppercase font-black tracking-[0.15em] ml-1 flex items-center gap-2 text-white">
-        {icon} {label}
-      </label>
-      <input
-        type="text"
-        placeholder={placeholder}
-        value={value || ""}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all placeholder:text-zinc-700 text-white"
-      />
     </div>
   );
 }
