@@ -8,7 +8,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Printer,
+  Loader2,
 } from "lucide-react";
+import jsPDF from "jspdf"; // Asegúrate de tenerlo instalado
 
 export default function FacturasPage() {
   const [facturas, setFacturas] = useState<any[]>([]);
@@ -20,21 +22,18 @@ export default function FacturasPage() {
   const [mensaje, setMensaje] = useState({ texto: "", tipo: "" });
 
   const cargarDatos = async () => {
-    // 1. Facturas del usuario
     const { data: fact_data } = await supabase
       .from("facturas")
       .select("*")
       .order("created_at", { ascending: false });
     if (fact_data) setFacturas(fact_data);
 
-    // 2. Clientes activos
     const { data: cli_data } = await supabase
       .from("clientes")
       .select("*")
       .eq("activo", true);
     if (cli_data) setClientes(cli_data);
 
-    // 3. Datos legales (IBAN, NIF...) para el PDF
     const { data: perfil_data } = await supabase
       .from("perfil")
       .select("*")
@@ -46,46 +45,52 @@ export default function FacturasPage() {
     cargarDatos();
   }, []);
 
-  const imprimirFactura = (factura: any) => {
-    // Aquí se conectará la lógica de jspdf usando los datos de 'perfil'
-    alert(
-      `Generando PDF para ${factura.cliente_nombre}. Incluyendo IBAN: ${perfil?.iban || "No configurado"}`,
+  const descargarPDF = (f: any) => {
+    const doc = new jsPDF();
+
+    // Configuración estética del PDF
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text(perfil?.nombre_empresa || "MI EMPRESA", 20, 30);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`NIF: ${perfil?.nif_cif || "-"}`, 20, 40);
+    doc.text(`Email: ${perfil?.email_contacto || "-"}`, 20, 45);
+    doc.text(perfil?.direccion || "-", 20, 50);
+
+    doc.setDrawColor(200);
+    doc.line(20, 60, 190, 60);
+
+    doc.setFont("helvetica", "bold");
+    doc.text("CLIENTE:", 20, 75);
+    doc.setFont("helvetica", "normal");
+    doc.text(f.cliente_nombre, 20, 82);
+
+    doc.setFont("helvetica", "bold");
+    doc.text("ESTADO:", 140, 75);
+    doc.text(f.estado.toUpperCase(), 140, 82);
+
+    doc.setFontSize(30);
+    doc.text(`${f.monto.toFixed(2)}€`, 20, 110);
+
+    // DATOS BANCARIOS (Lo que acabas de configurar)
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("MÉTODO DE PAGO:", 20, 140);
+    doc.setFont("helvetica", "normal");
+    doc.text(`IBAN: ${perfil?.iban || "Consultar"}`, 20, 148);
+    doc.text(`SWIFT/BIC: ${perfil?.swift_bic || "-"}`, 20, 154);
+
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text(
+      `Documento generado el ${new Date().toLocaleDateString()}`,
+      20,
+      280,
     );
-  };
 
-  const generarFactura = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMensaje({ texto: "", tipo: "" });
-
-    if (!clienteId || !monto)
-      return setMensaje({ texto: "Rellena todos los campos", tipo: "error" });
-
-    const cliente = clientes.find((c) => c.id === clienteId);
-    if (!cliente) return;
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { error } = await supabase.from("facturas").insert([
-      {
-        cliente_id: clienteId,
-        cliente_nombre: cliente.Nombre || cliente.nombre,
-        monto: parseFloat(monto),
-        estado: estado,
-        user_id: user.id,
-      },
-    ]);
-
-    if (error) {
-      setMensaje({ texto: "Error: " + error.message, tipo: "error" });
-    } else {
-      setMensaje({ texto: "¡Factura creada con éxito!", tipo: "success" });
-      setMonto("");
-      setClienteId("");
-      cargarDatos();
-    }
+    doc.save(`Factura_${f.cliente_nombre}_${f.id.slice(0, 5)}.pdf`);
   };
 
   const marcarComoPagada = async (id: string) => {
@@ -99,6 +104,31 @@ export default function FacturasPage() {
     }
   };
 
+  const generarFactura = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clienteId || !monto) return;
+    const cliente = clientes.find((c) => c.id === clienteId);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const { error } = await supabase.from("facturas").insert([
+      {
+        cliente_id: clienteId,
+        cliente_nombre: cliente.Nombre || cliente.nombre,
+        monto: parseFloat(monto),
+        estado: estado,
+        user_id: user?.id,
+      },
+    ]);
+
+    if (!error) {
+      setMonto("");
+      setClienteId("");
+      cargarDatos();
+    }
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-8 bg-black min-h-screen text-white">
       <header>
@@ -106,24 +136,11 @@ export default function FacturasPage() {
           Gestión de Facturas
         </h1>
         <p className="text-zinc-500 font-medium mt-1">
-          Genera nuevos cobros o actualiza estados en tiempo real.
+          Imprime pendientes o marca cobros.
         </p>
       </header>
 
-      {mensaje.texto && (
-        <div
-          className={`p-4 rounded-2xl flex items-center gap-2 animate-in fade-in zoom-in duration-300 ${
-            mensaje.tipo === "error"
-              ? "bg-red-500/10 text-red-500 border border-red-500/20"
-              : "bg-green-500/10 text-green-500 border border-green-500/20"
-          }`}
-        >
-          <AlertCircle size={18} />
-          <span className="font-bold text-sm">{mensaje.texto}</span>
-        </div>
-      )}
-
-      {/* FORMULARIO */}
+      {/* FORMULARIO ESTILO CÁPSULA */}
       <form
         onSubmit={generarFactura}
         className="bg-zinc-900 border border-zinc-800 p-6 rounded-[32px] flex flex-wrap md:flex-nowrap gap-4 items-end shadow-2xl"
@@ -135,7 +152,7 @@ export default function FacturasPage() {
           <select
             value={clienteId}
             onChange={(e) => setClienteId(e.target.value)}
-            className="w-full bg-zinc-800 border-zinc-700 rounded-2xl p-4 text-white outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+            className="w-full bg-zinc-800 border-zinc-700 rounded-2xl p-4 text-white outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
           >
             <option value="">Elegir cliente...</option>
             {clientes.map((c) => (
@@ -158,24 +175,11 @@ export default function FacturasPage() {
             placeholder="0.00"
           />
         </div>
-        <div className="w-full md:flex-1 space-y-2">
-          <label className="text-[10px] text-zinc-500 uppercase font-black tracking-[0.2em] ml-2">
-            Estado
-          </label>
-          <select
-            value={estado}
-            onChange={(e) => setEstado(e.target.value)}
-            className="w-full bg-zinc-800 border-zinc-700 rounded-2xl p-4 text-white outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
-          >
-            <option value="Pendiente">Pendiente</option>
-            <option value="Pagada">Pagada</option>
-          </select>
-        </div>
         <button
           type="submit"
-          className="w-full md:w-auto bg-blue-600 hover:bg-blue-500 text-white p-4 px-8 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
+          className="w-full md:w-auto bg-blue-600 hover:bg-blue-500 text-white p-4 px-8 rounded-2xl font-black uppercase tracking-widest transition-all"
         >
-          <Plus size={18} /> Generar
+          + Generar
         </button>
       </form>
 
@@ -184,7 +188,7 @@ export default function FacturasPage() {
         {facturas.map((f) => (
           <div
             key={f.id}
-            className="bg-zinc-900 border border-zinc-800 p-5 rounded-[24px] flex flex-col md:flex-row md:items-center justify-between group hover:border-zinc-700 transition-all gap-4"
+            className="bg-zinc-900 border border-zinc-800 p-5 rounded-[24px] flex flex-col md:flex-row md:items-center justify-between group gap-4"
           >
             <div className="flex items-center gap-4">
               <div
@@ -194,31 +198,30 @@ export default function FacturasPage() {
               </div>
               <div>
                 <h3 className="text-white font-bold text-lg flex items-center gap-2">
-                  {f.cliente_nombre}
+                  {f.cliente_nombre}{" "}
                   {f.estado === "Pagada" && (
                     <CheckCircle2 size={16} className="text-green-500" />
                   )}
                 </h3>
-                <span className="text-xs text-zinc-500 font-medium flex items-center gap-1">
-                  <Calendar size={12} />{" "}
+                <span className="text-xs text-zinc-500 font-medium italic">
+                  <Calendar size={12} className="inline mr-1" />{" "}
                   {new Date(f.created_at).toLocaleDateString()}
                 </span>
               </div>
             </div>
 
             <div className="flex items-center justify-between md:justify-end gap-3 border-t md:border-none border-zinc-800 pt-4 md:pt-0">
-              {/* BOTONES SOLO PARA PENDIENTES */}
               {f.estado === "Pendiente" && (
                 <div className="flex gap-2">
                   <button
                     onClick={() => marcarComoPagada(f.id)}
-                    className="text-[10px] bg-green-600 text-white px-4 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-green-500 transition-all shadow-lg shadow-green-900/20"
+                    className="text-[10px] bg-green-600/20 text-green-500 border border-green-500/30 px-4 py-2 rounded-xl font-black uppercase tracking-widest hover:bg-green-600 hover:text-white transition-all"
                   >
                     Cobrar
                   </button>
                   <button
-                    onClick={() => imprimirFactura(f)}
-                    className="text-[10px] bg-blue-600 text-white px-4 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 flex items-center gap-2"
+                    onClick={() => descargarPDF(f)}
+                    className="text-[10px] bg-blue-600 text-white px-4 py-2 rounded-xl font-black uppercase tracking-widest hover:bg-blue-500 transition-all flex items-center gap-2"
                   >
                     <Printer size={14} /> Imprimir
                   </button>
@@ -226,11 +229,11 @@ export default function FacturasPage() {
               )}
 
               <div className="text-right min-w-[100px]">
-                <p className="text-2xl font-black text-white leading-none">
+                <p className="text-2xl font-black text-white">
                   {f.monto.toFixed(2)}€
                 </p>
                 <p
-                  className={`text-[10px] font-black uppercase tracking-widest mt-1 ${f.estado === "Pagada" ? "text-green-500" : "text-orange-500"}`}
+                  className={`text-[10px] font-black uppercase tracking-widest ${f.estado === "Pagada" ? "text-green-500" : "text-orange-500"}`}
                 >
                   {f.estado}
                 </p>
