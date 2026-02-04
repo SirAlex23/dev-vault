@@ -46,6 +46,8 @@ export default function FacturasPage() {
 
   const descargarPDF = (f: any) => {
     const doc = new jsPDF();
+
+    // Encabezado de Empresa
     doc.setFont("helvetica", "bold");
     doc.setFontSize(22);
     doc.text(perfil?.nombre_empresa || "MI EMPRESA", 20, 30);
@@ -56,19 +58,40 @@ export default function FacturasPage() {
     doc.text(`Email: ${perfil?.email_contacto || "-"}`, 20, 45);
     doc.text(perfil?.direccion || "-", 20, 50);
 
+    doc.setDrawColor(200);
     doc.line(20, 60, 190, 60);
 
+    // Datos del Cliente y ESTADO de la factura
     doc.setFont("helvetica", "bold");
     doc.text("CLIENTE:", 20, 75);
+    doc.text("ESTADO:", 140, 75); // Etiqueta de estado
+
     doc.setFont("helvetica", "normal");
     doc.text(f.cliente_nombre, 20, 82);
 
+    // Dibujamos el estado (PENDIENTE o PAGADA)
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(
+      f.estado === "Pagada" ? 34 : 210,
+      f.estado === "Pagada" ? 197 : 70,
+      f.estado === "Pagada" ? 94 : 45,
+    );
+    doc.text(f.estado.toUpperCase(), 140, 82);
+    doc.setTextColor(0, 0, 0); // Reset color a negro
+
+    // Importe grande
     doc.setFontSize(30);
+    doc.setFont("helvetica", "bold");
     doc.text(`${f.monto.toFixed(2)}€`, 20, 110);
 
+    // Datos de Pago (IBAN + SWIFT)
     doc.setFontSize(10);
+    doc.text("DATOS DE PAGO:", 20, 140);
+    doc.setFont("helvetica", "normal");
     doc.text(`IBAN: ${perfil?.iban || "-"}`, 20, 148);
-    doc.save(`Factura_${f.cliente_nombre}.pdf`);
+    doc.text(`SWIFT/BIC: ${perfil?.swift_bic || "-"}`, 20, 155); // SWIFT añadido
+
+    doc.save(`Factura_${f.cliente_nombre}_${f.id.slice(0, 5)}.pdf`);
   };
 
   const generarFactura = async (e: React.FormEvent) => {
