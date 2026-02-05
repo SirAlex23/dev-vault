@@ -29,7 +29,12 @@ export default function PanelPage() {
   useEffect(() => {
     const cargarDatos = async () => {
       const { data: facturas } = await supabase.from("facturas").select("*");
-      const { data: clientes } = await supabase.from("clientes").select("*");
+
+      // CORRECCIÓN: Filtramos para contar SOLO los clientes activos
+      const { data: clientes } = await supabase
+        .from("clientes")
+        .select("*")
+        .eq("activo", true);
 
       if (facturas) {
         const totalPagado = facturas.reduce(
@@ -40,7 +45,7 @@ export default function PanelPage() {
         setStats({
           ingresos: totalPagado,
           facturas: facturas.length,
-          clientes: clientes?.length || 0,
+          clientes: clientes?.length || 0, // Ahora marcará 3 en lugar de 6
         });
 
         const meses = [
@@ -58,10 +63,9 @@ export default function PanelPage() {
           "Dic",
         ];
 
-        // CORRECCIÓN: Ahora los datos de la gráfica usan el total REAL de tus ingresos para Febrero
+        // Mantenemos la gráfica con los meses sincronizados
         const dataSincronizada = meses.map((mes, i) => ({
           name: mes,
-          // Si es el mes actual, ponemos tus ingresos reales. Si no, simulamos otros meses.
           total:
             i === mesActualIndex
               ? totalPagado
@@ -75,15 +79,15 @@ export default function PanelPage() {
   }, [mesActualIndex]);
 
   return (
-    <div className="p-4 md:p-8 space-y-8 bg-black min-h-screen text-white">
+    <div className="p-4 md:p-8 space-y-8 bg-black min-h-screen text-white pb-32">
       {/* Header */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black tracking-tighter uppercase italic">
             Resumen Ejecutivo
           </h1>
-          <p className="text-zinc-500 text-sm font-medium">
-            Bienvenido a tu centro de control de Dev-Vault.
+          <p className="text-zinc-500 text-sm font-medium uppercase tracking-widest">
+            Control de rendimiento Dev-Vault
           </p>
         </div>
         <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 p-2 px-4 rounded-2xl text-xs font-bold text-zinc-400">
@@ -121,11 +125,13 @@ export default function PanelPage() {
             <div className="bg-blue-500/10 p-2 rounded-lg">
               <BarChart3 size={20} className="text-blue-500" />
             </div>
-            <h2 className="font-bold text-lg">Rendimiento Mensual</h2>
+            <h2 className="font-black uppercase tracking-tighter text-lg italic">
+              Rendimiento Mensual
+            </h2>
           </div>
         </div>
 
-        <div className="h-[350px] w-full">
+        <div className="h-[350px] w-full px-2">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={datosGrafica}
@@ -140,7 +146,7 @@ export default function PanelPage() {
                 dataKey="name"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: "#71717a", fontSize: 12, fontWeight: "bold" }}
+                tick={{ fill: "#71717a", fontSize: 11, fontWeight: "900" }}
                 dy={10}
               />
               <YAxis
@@ -148,8 +154,7 @@ export default function PanelPage() {
                 tickLine={false}
                 tick={{ fill: "#71717a", fontSize: 10, fontWeight: "bold" }}
                 tickFormatter={(value) => `${value.toLocaleString()}€`}
-                width={70}
-                // Dinámico: el techo siempre será un poco más alto que tus ingresos máximos
+                width={65}
                 domain={[0, "dataMax + 1000"]}
               />
               <Tooltip
@@ -161,7 +166,7 @@ export default function PanelPage() {
                   color: "#fff",
                 }}
               />
-              <Bar dataKey="total" radius={[10, 10, 0, 0]} barSize={45}>
+              <Bar dataKey="total" radius={[10, 10, 0, 0]} barSize={40}>
                 {datosGrafica.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
@@ -185,15 +190,17 @@ function StatCard({ title, value, icon, trend, color }: any) {
           {icon}
         </div>
         {trend && (
-          <span className="text-xs font-bold text-green-500 bg-green-500/10 px-2 py-1 rounded-lg flex items-center gap-1">
+          <span className="text-[10px] font-black text-green-500 bg-green-500/10 px-2 py-1 rounded-lg flex items-center gap-1 uppercase tracking-widest">
             <ArrowUpRight size={12} /> {trend}
           </span>
         )}
       </div>
-      <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">
+      <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em]">
         {title}
       </p>
-      <p className={`text-3xl font-black mt-1 tracking-tighter ${color}`}>
+      <p
+        className={`text-4xl font-black mt-1 tracking-tighter italic ${color}`}
+      >
         {value}
       </p>
     </div>
